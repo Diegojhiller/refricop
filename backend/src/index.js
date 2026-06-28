@@ -40,6 +40,16 @@ app.get('/api/health', (req, res) => {
   res.json({ message: 'Refricop API Server Running' });
 });
 
+app.get('/api/debug-db', (req, res) => {
+  res.json({
+    hasUri: !!process.env.MYSQL_ADDON_URI,
+    addonHost: process.env.MYSQL_ADDON_HOST || 'not set',
+    dbHost: process.env.DB_HOST || 'not set',
+    nodeEnv: process.env.NODE_ENV || 'not set',
+    appPort: process.env.PORT || 'not set'
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, async () => {
