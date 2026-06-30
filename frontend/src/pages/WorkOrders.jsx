@@ -20,9 +20,17 @@ const WorkOrders = () => {
   const [appointmentId, setAppointmentId] = useState('');
   const [equipmentType, setEquipmentType] = useState('Aire Split');
   const [equipmentBrand, setEquipmentBrand] = useState('');
+  const [equipmentModel, setEquipmentModel] = useState('');
+  const [equipmentFrigocalories, setEquipmentFrigocalories] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [status, setStatus] = useState('En Progreso');
   const [selectedItems, setSelectedItems] = useState([]);
+
+  // Estados para Edición Completa en Detalle
+  const [editBrand, setEditBrand] = useState('');
+  const [editModel, setEditModel] = useState('');
+  const [editFrigocalories, setEditFrigocalories] = useState('');
+  const [editDiagnosis, setEditDiagnosis] = useState('');
 
   // Estados auxiliares para agregar repuestos del catálogo
   const [currentItemId, setCurrentItemId] = useState('');
@@ -32,13 +40,21 @@ const WorkOrders = () => {
     setSelectedWork(w);
     setEditCost(w.totalCost);
     setEditStatus(w.status);
+    setEditBrand(w.equipmentBrand || '');
+    setEditModel(w.equipmentModel || '');
+    setEditFrigocalories(w.equipmentFrigocalories || '');
+    setEditDiagnosis(w.diagnosis || '');
   };
 
   const handleSaveDetailChanges = async () => {
     try {
       const { data } = await api.put(`/works/${selectedWork.id}`, {
         status: editStatus,
-        totalCost: parseFloat(editCost) || 0
+        totalCost: parseFloat(editCost) || 0,
+        equipmentBrand: editBrand,
+        equipmentModel: editModel,
+        equipmentFrigocalories: editFrigocalories,
+        diagnosis: editDiagnosis
       });
       setSelectedWork({ ...selectedWork, ...data });
       fetchWorks();
@@ -65,6 +81,28 @@ const WorkOrders = () => {
         .catch(err => console.error('Error cargando catálogo', err));
     }
   }, [showModal]);
+
+  // Autocompletar datos del equipo desde el turno seleccionado
+  useEffect(() => {
+    if (appointmentId) {
+      const appt = appointments.find(a => a.id === parseInt(appointmentId));
+      if (appt) {
+        if (appt.equipmentBrand) setEquipmentBrand(appt.equipmentBrand);
+        if (appt.equipmentModel) setEquipmentModel(appt.equipmentModel);
+        if (appt.equipmentFrigocalories) setEquipmentFrigocalories(appt.equipmentFrigocalories);
+        
+        // Auto-detectar tipo de equipo en base a notas
+        const notes = (appt.notes || '').toLowerCase();
+        if (notes.includes('split')) {
+          setEquipmentType('Aire Split');
+        } else if (notes.includes('ventana')) {
+          setEquipmentType('Aire Ventana');
+        } else if (notes.includes('lavarropas')) {
+          setEquipmentType('Lavarropas Frontal');
+        }
+      }
+    }
+  }, [appointmentId, appointments]);
 
   const fetchWorks = async () => {
     try {
@@ -141,6 +179,8 @@ const WorkOrders = () => {
         appointmentId: parseInt(appointmentId),
         equipmentType,
         equipmentBrand,
+        equipmentModel,
+        equipmentFrigocalories,
         diagnosis,
         status,
         items: selectedItems.map(item => ({
@@ -172,6 +212,8 @@ const WorkOrders = () => {
       setAppointmentId('');
       setEquipmentType('Aire Split');
       setEquipmentBrand('');
+      setEquipmentModel('');
+      setEquipmentFrigocalories('');
       setDiagnosis('');
       setStatus('En Progreso');
       setSelectedItems([]);
@@ -245,10 +287,22 @@ const WorkOrders = () => {
               </select>
             </div>
 
-            <div className="input-group">
+             <div className="input-group">
               <label>Marca del Equipo</label>
               <input type="text" placeholder="Ej: LG, Carrier, Samsung" className="input-field" value={equipmentBrand} onChange={e => setEquipmentBrand(e.target.value)} required />
             </div>
+
+            <div className="input-group">
+              <label>Modelo</label>
+              <input type="text" placeholder="Ej: Premium 3000" className="input-field" value={equipmentModel} onChange={e => setEquipmentModel(e.target.value)} />
+            </div>
+
+            {(equipmentType.toLowerCase().includes('aire') || equipmentType.toLowerCase().includes('split') || equipmentType.toLowerCase().includes('ventana')) && (
+              <div className="input-group">
+                <label>Frigorías</label>
+                <input type="text" placeholder="Ej: 3000" className="input-field" value={equipmentFrigocalories} onChange={e => setEquipmentFrigocalories(e.target.value)} />
+              </div>
+            )}
 
             <div className="input-group">
               <label>Estado de Trabajo</label>
@@ -346,7 +400,15 @@ const WorkOrders = () => {
                 <tr key={w.id}>
                   <td data-label="ID" style={{ fontWeight: 600 }}>#{w.id}</td>
                   <td data-label="Cliente">{w.Appointment?.clientNameStr || w.Appointment?.Client?.name || 'Cliente'}</td>
-                  <td data-label="Equipo">{w.equipmentType} - {w.equipmentBrand}</td>
+                  <td data-label="Equipo">
+                    <div>{w.equipmentType} - {w.equipmentBrand}</div>
+                    {(w.equipmentModel || w.equipmentFrigocalories) && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', marginTop: '2px' }}>
+                        {w.equipmentModel && <span>{w.equipmentModel}</span>}
+                        {w.equipmentFrigocalories && <span> ({w.equipmentFrigocalories} frig.)</span>}
+                      </div>
+                    )}
+                  </td>
                   <td data-label="Diagnóstico">{w.diagnosis || '-'}</td>
                   <td data-label="Evidencias">{w.RepairPhotos?.length || 0} Fotos</td>
                   <td data-label="Costo" style={{ color: 'var(--success)', fontWeight: 'bold' }}>${parseFloat(w.totalCost).toLocaleString()}</td>
@@ -413,7 +475,13 @@ const WorkOrders = () => {
               <div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Equipo & Diagnóstico</p>
                 <strong>{selectedWork.equipmentType} - {selectedWork.equipmentBrand}</strong>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
+                {(selectedWork.equipmentModel || selectedWork.equipmentFrigocalories) && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)', marginTop: '4px' }}>
+                    {selectedWork.equipmentModel && <span>Modelo: <strong>{selectedWork.equipmentModel}</strong> </span>}
+                    {selectedWork.equipmentFrigocalories && <span>Frigorías: <strong>{selectedWork.equipmentFrigocalories} frig.</strong></span>}
+                  </div>
+                )}
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '6px', fontStyle: 'italic' }}>
                   "{selectedWork.diagnosis || 'Sin diagnóstico registrado.'}"
                 </p>
               </div>
@@ -529,6 +597,29 @@ const WorkOrders = () => {
                 </div>
               </div>
             )}
+
+             {/* Edición Completa de Ficha de Equipo */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.95rem', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>Ficha Técnica del Equipo e Informe</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                <div className="input-group" style={{ margin: 0 }}>
+                  <label>Marca</label>
+                  <input type="text" className="input-field" value={editBrand} onChange={e => setEditBrand(e.target.value)} />
+                </div>
+                <div className="input-group" style={{ margin: 0 }}>
+                  <label>Modelo</label>
+                  <input type="text" className="input-field" value={editModel} onChange={e => setEditModel(e.target.value)} />
+                </div>
+                <div className="input-group" style={{ margin: 0 }}>
+                  <label>Frigorías</label>
+                  <input type="text" className="input-field" value={editFrigocalories} onChange={e => setEditFrigocalories(e.target.value)} />
+                </div>
+              </div>
+              <div className="input-group" style={{ margin: 0 }}>
+                <label>Diagnóstico / Informe del Técnico</label>
+                <textarea className="input-field" rows="2" value={editDiagnosis} onChange={e => setEditDiagnosis(e.target.value)}></textarea>
+              </div>
+            </div>
 
             {/* Edición de Costo y Estado */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginBottom: '20px' }}>

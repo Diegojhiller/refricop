@@ -46,30 +46,39 @@ const Sidebar = ({ isMobileOpen, closeMobileMenu }) => {
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <NavLink to="/dashboard" style={navStyle}>
           <LayoutDashboard size={20} style={{ marginRight: '12px' }} />
-          Dashboard
+          {user?.role === 'Client' ? 'Panel de Control' : 'Dashboard'}
         </NavLink>
-        <NavLink to="/clients" style={navStyle}>
-          <Users size={20} style={{ marginRight: '12px' }} />
-          Clientes
-        </NavLink>
-        <NavLink to="/appointments" style={navStyle}>
-          <Calendar size={20} style={{ marginRight: '12px' }} />
-          Turnos
-        </NavLink>
-        <NavLink to="/works" style={navStyle}>
-          <PackagePlus size={20} style={{ marginRight: '12px' }} />
-          Órdenes de Trabajo
-        </NavLink>
-        <NavLink to="/finances" style={navStyle}>
-          <DollarSign size={20} style={{ marginRight: '12px' }} />
-          Finanzas (Caja)
-        </NavLink>
-        {user?.role === 'Admin' && (
-          <NavLink to="/catalog" style={navStyle}>
-            <Package size={20} style={{ marginRight: '12px' }} />
-            Catálogo
+        
+        {user?.role !== 'Client' && (
+          <NavLink to="/clients" style={navStyle}>
+            <Users size={20} style={{ marginRight: '12px' }} />
+            Clientes
           </NavLink>
         )}
+
+        <NavLink to="/appointments" style={navStyle}>
+          <Calendar size={20} style={{ marginRight: '12px' }} />
+          {user?.role === 'Client' ? 'Mis Turnos' : 'Turnos'}
+        </NavLink>
+
+        {user?.role !== 'Client' && (
+          <NavLink to="/works" style={navStyle}>
+            <PackagePlus size={20} style={{ marginRight: '12px' }} />
+            Órdenes de Trabajo
+          </NavLink>
+        )}
+
+        {user?.role === 'Admin' && (
+          <NavLink to="/finances" style={navStyle}>
+            <DollarSign size={20} style={{ marginRight: '12px' }} />
+            Finanzas (Caja)
+          </NavLink>
+        )}
+
+        <NavLink to="/catalog" style={navStyle}>
+          <Package size={20} style={{ marginRight: '12px' }} />
+          Catálogo y Precios
+        </NavLink>
       </nav>
 
       <button onClick={handleLogout} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>

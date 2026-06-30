@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../api/axios.js';
-import { Calendar, CheckCircle, Edit, CalendarPlus, MapPin, UserCheck } from 'lucide-react';
+import { Calendar, CheckCircle, Edit, CalendarPlus, MapPin, UserCheck, Trash2 } from 'lucide-react';
 
 const AppointmentsList = () => {
   const [appointments, setAppointments] = useState([]);
@@ -8,7 +9,12 @@ const AppointmentsList = () => {
   
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [newTurn, setNewTurn] = useState({ clientName: '', clientPhone: '', clientAddress: '', notes: '' });
+  const [newTurn, setNewTurn] = useState({ clientName: '', clientPhone: '', clientAddress: '' });
+  const [selectedSymptom, setSelectedSymptom] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [equipmentBrand, setEquipmentBrand] = useState('');
+  const [equipmentModel, setEquipmentModel] = useState('');
+  const [equipmentFrigocalories, setEquipmentFrigocalories] = useState('');
 
   // Autocomplete y Técnicos
   const [clients, setClients] = useState([]);
@@ -27,7 +33,10 @@ const AppointmentsList = () => {
     date: '',
     notes: '',
     technicianId: '',
-    status: ''
+    status: '',
+    equipmentBrand: '',
+    equipmentModel: '',
+    equipmentFrigocalories: ''
   });
 
   const formatDatetimeLocal = (dateString) => {
@@ -47,7 +56,10 @@ const AppointmentsList = () => {
       date: formatDatetimeLocal(a.date),
       notes: a.notes || '',
       technicianId: a.technicianId || '',
-      status: a.status || 'Solicitado'
+      status: a.status || 'Solicitado',
+      equipmentBrand: a.equipmentBrand || '',
+      equipmentModel: a.equipmentModel || '',
+      equipmentFrigocalories: a.equipmentFrigocalories || ''
     });
   };
 
@@ -61,7 +73,10 @@ const AppointmentsList = () => {
         date: new Date(editForm.date).toISOString(),
         notes: editForm.notes,
         technicianId: editForm.technicianId ? parseInt(editForm.technicianId) : null,
-        status: editForm.status
+        status: editForm.status,
+        equipmentBrand: editForm.equipmentBrand,
+        equipmentModel: editForm.equipmentModel,
+        equipmentFrigocalories: editForm.equipmentFrigocalories
       });
       setEditingAppointment(null);
       fetchAppointments();
@@ -99,6 +114,19 @@ const AppointmentsList = () => {
       .catch(err => console.error('Error cargando técnicos', err));
   }, []);
 
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const openId = params.get('open');
+    if (openId && appointments.length > 0) {
+      const appt = appointments.find(a => a.id === parseInt(openId));
+      if (appt) {
+        handleOpenEditModal(appt);
+      }
+    }
+  }, [location.search, appointments]);
+
   const fetchAppointments = async () => {
     try {
       const { data } = await api.get('/appointments');
@@ -114,6 +142,18 @@ const AppointmentsList = () => {
       fetchAppointments();
     } catch (e) {
       alert('Error confirmando el turno');
+    }
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este turno permanentemente? Se borrarán también las órdenes de trabajo asociadas.')) {
+      try {
+        await api.delete(`/appointments/${id}`);
+        alert('Turno eliminado correctamente.');
+        fetchAppointments();
+      } catch (err) {
+        alert('Error al eliminar el turno.');
+      }
     }
   };
 
@@ -135,8 +175,7 @@ const AppointmentsList = () => {
     setNewTurn({
       clientName: client.name,
       clientPhone: client.phone,
-      clientAddress: client.address,
-      notes: newTurn.notes
+      clientAddress: client.address
     });
     setShowSuggestions(false);
   };
@@ -146,15 +185,27 @@ const AppointmentsList = () => {
     if(!selectedDay || !selectedTime) return alert('Selecciona día y hora');
     
     const finalDate = new Date(`${selectedDay}T${selectedTime}`).toISOString();
+    const finalNotes = additionalNotes 
+      ? `${selectedSymptom} - Detalle: ${additionalNotes}` 
+      : selectedSymptom;
     
     try {
       await api.post('/appointments/book', { 
         ...newTurn, 
+        notes: finalNotes,
         date: finalDate,
-        technicianId: assignedTechnicianId ? parseInt(assignedTechnicianId) : null
+        technicianId: assignedTechnicianId ? parseInt(assignedTechnicianId) : null,
+        equipmentBrand,
+        equipmentModel,
+        equipmentFrigocalories
       });
       setShowModal(false);
-      setNewTurn({ clientName: '', clientPhone: '', clientAddress: '', notes: '' });
+      setNewTurn({ clientName: '', clientPhone: '', clientAddress: '' });
+      setSelectedSymptom('');
+      setAdditionalNotes('');
+      setEquipmentBrand('');
+      setEquipmentModel('');
+      setEquipmentFrigocalories('');
       setAssignedTechnicianId('');
       setSelectedDay('');
       setSelectedTime('');
@@ -253,8 +304,57 @@ const AppointmentsList = () => {
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <input type="text" placeholder="Domicilio / Localidad" className="input-field" value={newTurn.clientAddress} onChange={e => setNewTurn({...newTurn, clientAddress: e.target.value})} required style={{ flex: 1 }} />
-              <input type="text" placeholder="Síntoma o Notas..." className="input-field" value={newTurn.notes} onChange={e => setNewTurn({...newTurn, notes: e.target.value})} required style={{ flex: 1 }} />
             </div>
+
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <select className="input-field" value={selectedSymptom} onChange={e => setSelectedSymptom(e.target.value)} required style={{ flex: 1 }}>
+                <option value="">-- Selecciona Síntoma/Falla --</option>
+                <optgroup label="Aires Acondicionados Split">
+                  <option value="Split no enfría / no calienta">Split no enfría / no calienta</option>
+                  <option value="Split gotea agua por la unidad interior">Split gotea agua por la unidad interior</option>
+                  <option value="Split no enciende (sin señal en placa)">Split no enciende (sin señal en placa)</option>
+                  <option value="Split ventilador exterior no gira">Split ventilador exterior no gira</option>
+                </optgroup>
+                <optgroup label="Aires de Ventana">
+                  <option value="Aire Ventana no enfría / motor no arranca">Aire Ventana no enfría / motor no arranca</option>
+                  <option value="Aire Ventana hace ruido excesivo o vibración">Aire Ventana hace ruido excesivo o vibración</option>
+                  <option value="Aire Ventana congela el radiador (forma hielo)">Aire Ventana congela el radiador (forma hielo)</option>
+                  <option value="Aire Ventana tira agua hacia adentro">Aire Ventana tira agua hacia adentro</option>
+                </optgroup>
+                <optgroup label="Lavarropas">
+                  <option value="Lavarropas no centrifuga">Lavarropas no centrifuga</option>
+                  <option value="Lavarropas no desagota (bomba rota/tapada)">Lavarropas no desagota (bomba rota/tapada)</option>
+                  <option value="Lavarropas hace ruido muy fuerte al centrifugar">Lavarropas hace ruido muy fuerte al centrifugar</option>
+                  <option value="Lavarropas pierde agua por debajo / jabonera">Lavarropas pierde agua por debajo / jabonera</option>
+                </optgroup>
+                <optgroup label="Otros Electrodomésticos">
+                  <option value="Heladera no enfría abajo (freezer sí funciona)">Heladera no enfría abajo (freezer sí funciona)</option>
+                  <option value="Heladera no arranca / motor recalienta">Heladera no arranca / motor recalienta</option>
+                  <option value="Secarropas no gira el tambor">Secarropas no gira el tambor</option>
+                  <option value="Microondas no calienta (enciende y gira)">Microondas no calienta (enciende y gira)</option>
+                </optgroup>
+                <option value="Otro problema">Otro problema (Especificar al lado)</option>
+              </select>
+              <input type="text" placeholder="Detalles de la falla (Opcional)" className="input-field" value={additionalNotes} onChange={e => setAdditionalNotes(e.target.value)} style={{ flex: 1 }} />
+            </div>
+
+            {/* Campos condicionales para Aires en Creación Manual */}
+            {(selectedSymptom.toLowerCase().includes('split') || selectedSymptom.toLowerCase().includes('ventana')) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)', marginTop: '4px' }}>
+                <div className="input-group">
+                  <label>Marca del Aire</label>
+                  <input type="text" placeholder="Ej: BGH" className="input-field" value={equipmentBrand} onChange={e => setEquipmentBrand(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Modelo</label>
+                  <input type="text" placeholder="Ej: Ventana 3000" className="input-field" value={equipmentModel} onChange={e => setEquipmentModel(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Frigorías</label>
+                  <input type="text" placeholder="Ej: 3000" className="input-field" value={equipmentFrigocalories} onChange={e => setEquipmentFrigocalories(e.target.value)} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button type="submit" className="btn-primary">Guardar Turno en Agenda</button>
@@ -301,8 +401,17 @@ const AppointmentsList = () => {
                       'Sin domicilio'
                     )}
                   </td>
-                  <td data-label="Síntomas / Notas" style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {a.notes}
+                  <td data-label="Síntomas / Notas" style={{ maxWidth: '250px' }}>
+                    <div style={{ fontWeight: '500', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={a.notes}>
+                      {a.notes}
+                    </div>
+                    {(a.equipmentBrand || a.equipmentModel || a.equipmentFrigocalories) && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }} title={`${a.equipmentBrand || ''} ${a.equipmentModel || ''} ${a.equipmentFrigocalories ? a.equipmentFrigocalories + ' frig.' : ''}`}>
+                        {a.equipmentBrand && <span>🏷️ {a.equipmentBrand}</span>}
+                        {a.equipmentModel && <span>📦 {a.equipmentModel}</span>}
+                        {a.equipmentFrigocalories && <span>❄️ {a.equipmentFrigocalories} frig.</span>}
+                      </div>
+                    )}
                   </td>
                   <td data-label="Técnico" style={{ fontWeight: 500, color: 'var(--accent-blue)' }}>
                     {a.User?.name || <span style={{ color: 'var(--text-secondary)' }}>Sin asignar</span>}
@@ -327,6 +436,9 @@ const AppointmentsList = () => {
                       )}
                       <button onClick={() => handleOpenEditModal(a)} title="Editar Turno" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-blue)' }}>
                         <Edit size={18} />
+                      </button>
+                      <button onClick={() => handleDeleteAppointment(a.id)} title="Eliminar Turno" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>
@@ -367,9 +479,61 @@ const AppointmentsList = () => {
                 <input type="datetime-local" className="input-field" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} required />
               </div>
               <div className="input-group">
-                <label>Notas / Síntoma</label>
+                <label>Autocompletar Síntoma Común (Opcional)</label>
+                <select 
+                  className="input-field" 
+                  onChange={e => { if (e.target.value) setEditForm({...editForm, notes: e.target.value}); }}
+                  value=""
+                >
+                  <option value="">-- Selecciona para reemplazar notas --</option>
+                  <optgroup label="Aires Acondicionados Split">
+                    <option value="Split no enfría / no calienta">Split no enfría / no calienta</option>
+                    <option value="Split gotea agua por la unidad interior">Split gotea agua por la unidad interior</option>
+                    <option value="Split no enciende (sin señal en placa)">Split no enciende (sin señal en placa)</option>
+                    <option value="Split ventilador exterior no gira">Split ventilador exterior no gira</option>
+                  </optgroup>
+                  <optgroup label="Aires de Ventana">
+                    <option value="Aire Ventana no enfría / motor no arranca">Aire Ventana no enfría / motor no arranca</option>
+                    <option value="Aire Ventana hace ruido excesivo o vibración">Aire Ventana hace ruido excesivo o vibración</option>
+                    <option value="Aire Ventana congela el radiador (forma hielo)">Aire Ventana congela el radiador (forma hielo)</option>
+                    <option value="Aire Ventana tira agua hacia adentro">Aire Ventana tira agua hacia adentro</option>
+                  </optgroup>
+                  <optgroup label="Lavarropas">
+                    <option value="Lavarropas no centrifuga">Lavarropas no centrifuga</option>
+                    <option value="Lavarropas no desagota (bomba rota/tapada)">Lavarropas no desagota (bomba rota/tapada)</option>
+                    <option value="Lavarropas hace ruido muy fuerte al centrifugar">Lavarropas hace ruido muy fuerte al centrifugar</option>
+                    <option value="Lavarropas pierde agua por debajo / jabonera">Lavarropas pierde agua por debajo / jabonera</option>
+                  </optgroup>
+                  <optgroup label="Otros Electrodomésticos">
+                    <option value="Heladera no enfría abajo (freezer sí funciona)">Heladera no enfría abajo (freezer sí funciona)</option>
+                    <option value="Heladera no arranca / motor recalienta">Heladera no arranca / motor recalienta</option>
+                    <option value="Secarropas no gira el tambor">Secarropas no gira el tambor</option>
+                    <option value="Microondas no calienta (enciende y gira)">Microondas no calienta (enciende y gira)</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Notas / Síntoma Completo</label>
                 <input type="text" className="input-field" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} />
               </div>
+
+              {/* Campos condicionales para Aires en Edición */}
+              {(editForm.notes.toLowerCase().includes('split') || editForm.notes.toLowerCase().includes('ventana') || editForm.equipmentBrand || editForm.equipmentModel || editForm.equipmentFrigocalories) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>
+                  <div className="input-group">
+                    <label>Marca del Aire</label>
+                    <input type="text" className="input-field" value={editForm.equipmentBrand} onChange={e => setEditForm({...editForm, equipmentBrand: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Modelo</label>
+                    <input type="text" className="input-field" value={editForm.equipmentModel} onChange={e => setEditForm({...editForm, equipmentModel: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Frigorías</label>
+                    <input type="text" className="input-field" value={editForm.equipmentFrigocalories} onChange={e => setEditForm({...editForm, equipmentFrigocalories: e.target.value})} />
+                  </div>
+                </div>
+              )}
               <div className="input-group">
                 <label>Técnico Asignado</label>
                 <select className="input-field" value={editForm.technicianId} onChange={e => setEditForm({...editForm, technicianId: e.target.value})}>

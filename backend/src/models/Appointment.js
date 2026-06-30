@@ -19,6 +19,18 @@ const Appointment = sequelize.define('Appointment', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  equipmentBrand: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  equipmentModel: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  equipmentFrigocalories: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   clientNameStr: { // Para turnos solicitados por web sin cliente registrado formalmente aun
     type: DataTypes.STRING,
     allowNull: true,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { Sun, Moon, Snowflake } from 'lucide-react';
 import Landing from './pages/Landing';
@@ -57,6 +57,7 @@ const ThemeToggle = ({ style = {} }) => {
 import MobileBottomNav from './components/MobileBottomNav';
 
 const NotificationsPanel = ({ socket, style = {} }) => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = React.useState([]);
   const [isOpen, setIsOpen] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
@@ -176,12 +177,25 @@ const NotificationsPanel = ({ socket, style = {} }) => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {notifications.map((n, i) => (
-                <div key={i} style={{ 
-                  fontSize: '0.85rem', 
-                  borderBottom: i < notifications.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                  paddingBottom: '8px',
-                  color: n.read ? 'var(--text-primary)' : 'var(--accent-cyan)'
-                }}>
+                <div 
+                  key={i} 
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate(`/appointments?open=${n.id}`);
+                  }}
+                  style={{ 
+                    fontSize: '0.85rem', 
+                    borderBottom: i < notifications.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    paddingBottom: '8px',
+                    color: n.read ? 'var(--text-primary)' : 'var(--accent-cyan)',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                    padding: '6px',
+                    borderRadius: '4px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
                   <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>🛠️ {n.notes}</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '3px' }}>📍 Asistir a: {n.address}</div>
                   <div style={{ color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: 500 }}>📅 Pactado: {n.date}</div>

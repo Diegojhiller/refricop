@@ -26,6 +26,10 @@ const Client = sequelize.define('Client', {
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
   }
 }, {
   timestamps: true

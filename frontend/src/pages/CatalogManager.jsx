@@ -146,7 +146,7 @@ const CatalogManager = () => {
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
         
         {/* Lado Izquierdo: Catálogo */}
-        <div style={{ flex: 3, minWidth: '300px' }}>
+        <div style={{ flex: user?.role === 'Client' ? '1 1 100%' : 3, minWidth: '300px' }}>
           <div className="glass-panel animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', background: 'transparent', border: 'none', padding: 0 }}>
             {items.map(item => (
               <div key={item.id} className="glass-panel" style={{ position: 'relative', borderLeft: item.stock === 0 && item.category !== 'General' ? '3px solid var(--danger)' : '1px solid var(--panel-border)' }}>
@@ -193,66 +193,68 @@ const CatalogManager = () => {
         </div>
 
         {/* Lado Derecho: Panel de Solicitudes */}
-        <div style={{ flex: 1, minWidth: '280px' }}>
-          <div className="glass-panel" style={{ position: 'sticky', top: '24px' }}>
-            <h3 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
-              📋 Solicitudes de Stock
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '16px' }}>
-              Seguimiento de pedidos de reabastecimiento para técnicos.
-            </p>
+        {user?.role !== 'Client' && (
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <div className="glass-panel" style={{ position: 'sticky', top: '24px' }}>
+              <h3 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
+                📋 Solicitudes de Stock
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '16px' }}>
+                Seguimiento de pedidos de reabastecimiento para técnicos.
+              </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '450px', overflowY: 'auto', paddingRight: '4px' }}>
-              {requests.map(r => (
-                <div key={r.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)', fontSize: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
-                    <strong style={{ color: 'var(--accent-cyan)' }}>{r.itemName}</strong>
-                    <span style={{ 
-                      fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px',
-                      background: r.status === 'Aprobado' ? 'rgba(16, 185, 129, 0.15)' : r.status === 'Rechazado' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                      color: r.status === 'Aprobado' ? 'var(--success)' : r.status === 'Rechazado' ? 'var(--danger)' : 'var(--warning)',
-                      fontWeight: 'bold'
-                    }}>
-                      {r.status}
-                    </span>
-                  </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '6px' }}>
-                    Cantidad: <strong>{r.qty} u.</strong> • Solicitó: {r.requester}
-                  </div>
-                  {r.notes && (
-                    <p style={{ margin: '0 0 8px 0', fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.01)', padding: '6px', borderRadius: '4px' }}>
-                      "{r.notes}"
-                    </p>
-                  )}
-
-                  {user?.role === 'Admin' && r.status === 'Pendiente' && (
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                      <button 
-                        onClick={() => handleApproveRequest(r.id, r.itemId, r.qty)} 
-                        className="btn-primary" 
-                        style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }}
-                      >
-                        Aprobar
-                      </button>
-                      <button 
-                        onClick={() => handleRejectRequest(r.id)} 
-                        className="btn-secondary" 
-                        style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                      >
-                        Rechazar
-                      </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '450px', overflowY: 'auto', paddingRight: '4px' }}>
+                {requests.map(r => (
+                  <div key={r.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                      <strong style={{ color: 'var(--accent-cyan)' }}>{r.itemName}</strong>
+                      <span style={{ 
+                        fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px',
+                        background: r.status === 'Aprobado' ? 'rgba(16, 185, 129, 0.15)' : r.status === 'Rechazado' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                        color: r.status === 'Aprobado' ? 'var(--success)' : r.status === 'Rechazado' ? 'var(--danger)' : 'var(--warning)',
+                        fontWeight: 'bold'
+                      }}>
+                        {r.status}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
-              {requests.length === 0 && (
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', display: 'block', padding: '16px' }}>
-                  No hay solicitudes de stock.
-                </span>
-              )}
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '6px' }}>
+                      Cantidad: <strong>{r.qty} u.</strong> • Solicitó: {r.requester}
+                    </div>
+                    {r.notes && (
+                      <p style={{ margin: '0 0 8px 0', fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.01)', padding: '6px', borderRadius: '4px' }}>
+                        "{r.notes}"
+                      </p>
+                    )}
+
+                    {user?.role === 'Admin' && r.status === 'Pendiente' && (
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                        <button 
+                          onClick={() => handleApproveRequest(r.id, r.itemId, r.qty)} 
+                          className="btn-primary" 
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1 }}
+                        >
+                          Aprobar
+                        </button>
+                        <button 
+                          onClick={() => handleRejectRequest(r.id)} 
+                          className="btn-secondary" 
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', flex: 1, borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {requests.length === 0 && (
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', display: 'block', padding: '16px' }}>
+                    No hay solicitudes de stock.
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
 
@@ -298,7 +300,7 @@ const CatalogManager = () => {
             </div>
 
             {/* Formulario de Solicitud de Stock */}
-            {selectedItem.category !== 'General' && (
+            {selectedItem.category !== 'General' && user?.role !== 'Client' && (
               <form onSubmit={handleSendRequest} style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
                 <h4 style={{ fontSize: '1rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   📦 Solicitar Abastecimiento o Detalles

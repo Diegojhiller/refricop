@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Wrench, ShieldCheck, Clock, Zap, Snowflake } from 'lucide-react';
 import { ThemeToggle } from '../App';
+import api from '../api/axios';
 
 const Landing = () => {
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    api.get('/reviews')
+      .then(({ data }) => setReviews(data))
+      .catch(err => console.error('Error cargando reseñas en landing:', err));
+  }, []);
+
   return (
     <div style={{ padding: '0', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <ThemeToggle style={{ position: 'fixed', top: '20px', right: '25px', zIndex: 9999 }} />
@@ -55,6 +64,32 @@ const Landing = () => {
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Registra qué componentes se usaron en cada equipo intervenido.</p>
           </div>
         </div>
+
+        {/* Testimonials Section */}
+        {reviews.length > 0 && (
+          <div style={{ marginTop: '80px', width: '100%' }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '24px', textAlign: 'center', color: 'var(--text-primary)' }}>
+              Opiniones de nuestros Clientes
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
+              {reviews.slice(0, 3).map((rev) => (
+                <div key={rev.id} className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ color: 'var(--warning)', fontSize: '1.25rem', marginBottom: '8px' }}>
+                      {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                    </div>
+                    <p style={{ fontStyle: 'italic', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+                      "{rev.comment || 'Excelente atención y servicio técnico.'}"
+                    </p>
+                  </div>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)' }}>
+                    - {rev.Client?.name || 'Cliente de Refricop'}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

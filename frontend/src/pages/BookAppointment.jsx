@@ -11,7 +11,11 @@ const BookAppointment = () => {
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientAddress, setClientAddress] = useState('');
-  const [notes, setNotes] = useState('');
+  const [selectedSymptom, setSelectedSymptom] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [equipmentBrand, setEquipmentBrand] = useState('');
+  const [equipmentModel, setEquipmentModel] = useState('');
+  const [equipmentFrigocalories, setEquipmentFrigocalories] = useState('');
   
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
@@ -40,6 +44,10 @@ const BookAppointment = () => {
     if(!selectedDay || !selectedTime) return alert('Selecciona día y hora');
     const finalDate = new Date(`${selectedDay}T${selectedTime}`).toISOString();
 
+    const finalNotes = additionalNotes 
+      ? `${selectedSymptom} - Detalle: ${additionalNotes}` 
+      : selectedSymptom;
+
     try {
       await api.post('/appointments/book', {
         date: finalDate,
@@ -48,10 +56,14 @@ const BookAppointment = () => {
         clientAddress,
         latitude,
         longitude,
-        notes
+        notes: finalNotes,
+        equipmentBrand,
+        equipmentModel,
+        equipmentFrigocalories
       });
       alert('¡Turno reservado con éxito! Recibirás confirmación pronto.');
-      setSelectedDay(''); setSelectedTime(''); setClientName(''); setClientPhone(''); setClientAddress(''); setNotes(''); setLatitude(null); setLongitude(null); setLocationStatus('');
+      setSelectedDay(''); setSelectedTime(''); setClientName(''); setClientPhone(''); setClientAddress(''); 
+      setSelectedSymptom(''); setAdditionalNotes(''); setEquipmentBrand(''); setEquipmentModel(''); setEquipmentFrigocalories(''); setLatitude(null); setLongitude(null); setLocationStatus('');
     } catch (e) {
       alert('Error al reservar turno');
     }
@@ -139,9 +151,63 @@ const BookAppointment = () => {
             </div>
 
             <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-              <label><MessageSquare size={14}/> Síntoma del Equipo (Ej: Split no enfría, Lavarropas error E2)</label>
-              <textarea className="input-field" rows="3" value={notes} onChange={e => setNotes(e.target.value)} required></textarea>
+              <label><MessageSquare size={14}/> Síntoma o Falla del Equipo (Selecciona una opción)</label>
+              <select 
+                className="input-field" 
+                value={selectedSymptom} 
+                onChange={e => setSelectedSymptom(e.target.value)} 
+                required
+              >
+                <option value="">-- Selecciona el error o síntoma principal --</option>
+                <optgroup label="Aires Acondicionados / Split">
+                  <option value="Split no enfría / no calienta">Split no enfría / no calienta</option>
+                  <option value="Split pierde agua (gotea por dentro)">Split pierde agua (gotea por dentro)</option>
+                  <option value="Split no enciende / no responde">Split no enciende / no responde</option>
+                  <option value="Split hace un ruido extraño o vibra">Split hace un ruido extraño o vibra</option>
+                  <option value="Split larga olor desagradable">Split larga olor desagradable</option>
+                  <option value="Split se apaga solo al poco tiempo">Split se apaga solo al poco tiempo</option>
+                </optgroup>
+                <optgroup label="Lavarropas (Carga Frontal / Superior)">
+                  <option value="Lavarropas no centrifuga">Lavarropas no centrifuga</option>
+                  <option value="Lavarropas no carga agua">Lavarropas no carga agua</option>
+                  <option value="Lavarropas no desagota (se queda con agua)">Lavarropas no desagota (se queda con agua)</option>
+                  <option value="Lavarropas hace ruido muy fuerte al centrifugar">Lavarropas hace ruido muy fuerte al centrifugar</option>
+                  <option value="Lavarropas pierde agua por debajo">Lavarropas pierde agua por debajo</option>
+                  <option value="Lavarropas no traba la puerta (error de blocapuerta)">Lavarropas no traba la puerta (error de blocapuerta)</option>
+                  <option value="Lavarropas no enciende o parpadean las luces">Lavarropas no enciende o parpadean las luces</option>
+                </optgroup>
+                <option value="Otro problema">Otro problema (Especificar abajo)</option>
+              </select>
             </div>
+
+            <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Comentarios o detalles adicionales (Opcional)</label>
+              <textarea 
+                placeholder="Escribe aquí detalles adicionales de la falla si lo deseas..." 
+                className="input-field" 
+                rows="2" 
+                value={additionalNotes} 
+                onChange={e => setAdditionalNotes(e.target.value)}
+              ></textarea>
+            </div>
+
+            {/* Campos condicionales para Aires (Split y Ventana) */}
+            {(selectedSymptom.toLowerCase().includes('split') || selectedSymptom.toLowerCase().includes('ventana')) && (
+              <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--panel-border)', marginTop: '8px' }}>
+                <div className="input-group">
+                  <label>Marca del Aire</label>
+                  <input type="text" placeholder="Ej: BGH, Carrier, LG" className="input-field" value={equipmentBrand} onChange={e => setEquipmentBrand(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Modelo</label>
+                  <input type="text" placeholder="Ej: Split Silent" className="input-field" value={equipmentModel} onChange={e => setEquipmentModel(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Frigorías</label>
+                  <input type="text" placeholder="Ej: 3000, 4500" className="input-field" value={equipmentFrigocalories} onChange={e => setEquipmentFrigocalories(e.target.value)} />
+                </div>
+              </div>
+            )}
 
             <button type="submit" className="btn-primary" style={{ gridColumn: '1 / -1' }}>Finalizar Solicitud de Turno</button>
           </form>

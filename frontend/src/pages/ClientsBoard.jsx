@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { UserPlus, Search, Clock } from 'lucide-react';
+import { UserPlus, Search, Clock, Trash2 } from 'lucide-react';
 
 const ClientsBoard = () => {
   const [clients, setClients] = useState([]);
@@ -19,6 +19,22 @@ const ClientsBoard = () => {
       setClients(data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteAppointment = async (apptId) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este turno permanentemente? Se borrarán también las órdenes de trabajo asociadas.')) {
+      try {
+        await api.delete(`/appointments/${apptId}`);
+        alert('Turno eliminado correctamente.');
+        // Refrescar clientes y actualizar el seleccionado para refrescar la vista en el modal
+        const { data } = await api.get('/clients');
+        setClients(data);
+        const updatedClient = data.find(c => c.id === selectedClient.id);
+        setSelectedClient(updatedClient || null);
+      } catch (err) {
+        alert('Error al eliminar el turno.');
+      }
     }
   };
 
@@ -197,13 +213,22 @@ const ClientsBoard = () => {
                           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>
                             {new Date(appt.date).toLocaleDateString()} {new Date(appt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          <span style={{
-                            fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px',
-                            background: appt.status === 'Confirmado' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
-                            color: appt.status === 'Confirmado' ? 'var(--success)' : 'var(--accent-blue)'
-                          }}>
-                            {appt.status}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px',
+                              background: appt.status === 'Confirmado' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
+                              color: appt.status === 'Confirmado' ? 'var(--success)' : 'var(--accent-blue)'
+                            }}>
+                              {appt.status}
+                            </span>
+                            <button 
+                              onClick={() => handleDeleteAppointment(appt.id)} 
+                              title="Eliminar Turno" 
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', padding: 0 }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                         <p style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                           <strong>Problema reportado:</strong> {appt.notes}

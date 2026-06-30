@@ -1,4 +1,4 @@
-import { Appointment, RepairWork, RepairItem, RepairPhoto, Client, User, CustomerQuery, ServiceCatalog, FinanceTransaction, sequelize } from '../models/index.js';
+import { Appointment, RepairWork, RepairItem, RepairPhoto, Client, User, CustomerQuery, ServiceCatalog, FinanceTransaction, Review, sequelize } from '../models/index.js';
 import { Op } from 'sequelize';
 
 // --- Turnos (Nuevos Endpoints) ---
@@ -6,7 +6,7 @@ import { Op } from 'sequelize';
 // POST: Cliente solicita un turno
 export const bookAppointment = async (req, res) => {
   try {
-    const { date, notes, clientName, clientPhone, clientAddress, latitude, longitude, technicianId } = req.body;
+    const { date, notes, clientName, clientPhone, clientAddress, latitude, longitude, technicianId, equipmentBrand, equipmentModel, equipmentFrigocalories } = req.body;
     
     const newAppointment = await Appointment.create({ 
       date, 
@@ -17,7 +17,10 @@ export const bookAppointment = async (req, res) => {
       latitude,
       longitude,
       technicianId: technicianId ? parseInt(technicianId) : null,
-      status: technicianId ? 'Confirmado' : 'Solicitado'
+      status: technicianId ? 'Confirmado' : 'Solicitado',
+      equipmentBrand,
+      equipmentModel,
+      equipmentFrigocalories
     });
     
     const io = req.app.get('io');
@@ -35,9 +38,20 @@ export const bookAppointment = async (req, res) => {
 export const updateAppointment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, clientId, date, notes, clientName, clientPhone, clientAddress, technicianId } = req.body;
+    const { status, clientId, date, notes, clientName, clientPhone, clientAddress, technicianId, equipmentBrand, equipmentModel, equipmentFrigocalories } = req.body;
     const appointment = await Appointment.findByPk(id);
     if (!appointment) return res.status(404).json({ error: 'Turno no encontrado' });
+
+    // Validar permisos para clientes
+    if (req.user && req.user.role === 'Client') {
+      if (appointment.clientId !== req.user.clientId) {
+        return res.status(403).json({ error: 'No tienes permisos para modificar este turno' });
+      }
+      // Solo puede cambiar a cancelado o modificar la fecha/notas si todavía no está en curso/completado
+      if (status !== undefined && status !== 'Cancelado') {
+        return res.status(403).json({ error: 'No puedes cambiar el estado a este valor' });
+      }
+    }
 
     if (status !== undefined) appointment.status = status;
     if (clientId !== undefined) appointment.clientId = clientId;
@@ -47,6 +61,9 @@ export const updateAppointment = async (req, res) => {
     if (clientPhone !== undefined) appointment.clientPhoneStr = clientPhone;
     if (clientAddress !== undefined) appointment.clientAddressStr = clientAddress;
     if (technicianId !== undefined) appointment.technicianId = technicianId ? parseInt(technicianId) : null;
+    if (equipmentBrand !== undefined) appointment.equipmentBrand = equipmentBrand;
+    if (equipmentModel !== undefined) appointment.equipmentModel = equipmentModel;
+    if (equipmentFrigocalories !== undefined) appointment.equipmentFrigocalories = equipmentFrigocalories;
 
     await appointment.save();
     res.json(appointment);
@@ -55,11 +72,42 @@ export const updateAppointment = async (req, res) => {
   }
 };
 
+export const deleteAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const appointment = await Appointment.findByPk(id);
+    if (!appointment) return res.status(404).json({ error: 'Turno no encontrado' });
+
+    // Validar permisos para clientes
+    if (req.user && req.user.role === 'Client') {
+      if (appointment.clientId !== req.user.clientId) {
+        return res.status(403).json({ error: 'No tienes permisos para eliminar este turno' });
+      }
+    }
+
+    // Borrar todas las órdenes de trabajo asociadas si existen
+    const repairWorks = await RepairWork.findAll({ where: { appointmentId: id } });
+    for (const repairWork of repairWorks) {
+      await RepairPhoto.destroy({ where: { repairWorkId: repairWork.id } });
+      await RepairItem.destroy({ where: { repairWorkId: repairWork.id } });
+      await repairWork.destroy();
+    }
+
+    // Borrar reseñas vinculadas
+    await Review.destroy({ where: { appointmentId: id } });
+
+    await appointment.destroy();
+    res.json({ message: 'Turno eliminado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar el turno', details: error.message });
+  }
+};
+
 // PUT: Modificar costo y estado de una orden de trabajo
 export const updateRepairWork = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, totalCost, diagnosis, equipmentType, equipmentBrand } = req.body;
+    const { status, totalCost, diagnosis, equipmentType, equipmentBrand, equipmentModel, equipmentFrigocalories } = req.body;
     const repair = await RepairWork.findByPk(id);
     if (!repair) return res.status(404).json({ error: 'Orden de trabajo no encontrada' });
 
@@ -68,6 +116,8 @@ export const updateRepairWork = async (req, res) => {
     if (diagnosis !== undefined) repair.diagnosis = diagnosis;
     if (equipmentType !== undefined) repair.equipmentType = equipmentType;
     if (equipmentBrand !== undefined) repair.equipmentBrand = equipmentBrand;
+    if (equipmentModel !== undefined) repair.equipmentModel = equipmentModel;
+    if (equipmentFrigocalories !== undefined) repair.equipmentFrigocalories = equipmentFrigocalories;
 
     await repair.save();
     res.json(repair);
@@ -79,8 +129,34 @@ export const updateRepairWork = async (req, res) => {
 
 export const createAppointment = async (req, res) => {
   try {
-    const { date, notes, clientId, technicianId } = req.body;
-    const newAppointment = await Appointment.create({ date, notes, clientId, technicianId, status: 'Confirmado' });
+    const { date, notes, clientId, technicianId, equipmentBrand, equipmentModel, equipmentFrigocalories } = req.body;
+    
+    let finalClientId = clientId;
+    let finalStatus = 'Confirmado';
+    let finalTechnicianId = technicianId;
+
+    if (req.user && req.user.role === 'Client') {
+      finalClientId = req.user.clientId;
+      finalStatus = 'Solicitado';
+      finalTechnicianId = null;
+    }
+
+    const newAppointment = await Appointment.create({ 
+      date, 
+      notes, 
+      clientId: finalClientId, 
+      technicianId: finalTechnicianId, 
+      status: finalStatus,
+      equipmentBrand,
+      equipmentModel,
+      equipmentFrigocalories
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('nueva_reserva', newAppointment);
+    }
+
     res.status(201).json(newAppointment);
   } catch (error) {
     res.status(500).json({ error: 'Error al crear el turno internamente', details: error.message });
@@ -100,6 +176,8 @@ export const getAppointments = async (req, res) => {
     // Si el usuario autenticado es técnico, sólo retornamos sus turnos asignados
     if (req.user && req.user.role === 'Technician') {
       queryOptions.where = { technicianId: req.user.id };
+    } else if (req.user && req.user.role === 'Client') {
+      queryOptions.where = { clientId: req.user.clientId };
     }
 
     const appointments = await Appointment.findAll(queryOptions);
@@ -132,12 +210,14 @@ export const getQueries = async (req, res) => {
 export const createRepairWork = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { appointmentId, equipmentType, equipmentBrand, diagnosis, status, items } = req.body;
+    const { appointmentId, equipmentType, equipmentBrand, equipmentModel, equipmentFrigocalories, diagnosis, status, items } = req.body;
     
     const repair = await RepairWork.create({
       appointmentId,
       equipmentType,
       equipmentBrand,
+      equipmentModel,
+      equipmentFrigocalories,
       diagnosis,
       status
     }, { transaction });

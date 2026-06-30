@@ -15,6 +15,14 @@ const RepairWork = sequelize.define('RepairWork', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  equipmentModel: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  equipmentFrigocalories: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   diagnosis: {
     type: DataTypes.TEXT,
     allowNull: true,
