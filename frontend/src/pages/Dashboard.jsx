@@ -209,6 +209,19 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteAppointment = async (id) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este turno permanentemente? Se borrarán también las órdenes de trabajo asociadas.')) {
+      try {
+        await api.delete(`/appointments/${id}`);
+        alert('Turno eliminado correctamente.');
+        const { data } = await api.get('/dashboard/stats');
+        setStats(data);
+      } catch (err) {
+        alert('Error al eliminar el turno.');
+      }
+    }
+  };
+
   // Manejadores para Técnico
   const handleStartService = async (apptId) => {
     try {
@@ -945,6 +958,7 @@ const Dashboard = () => {
                 <th>Síntomas / Detalle del Trabajo</th>
                 <th>Técnico Asignado</th>
                 <th>Estado</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -970,11 +984,20 @@ const Dashboard = () => {
                       {appt.status}
                     </span>
                   </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button 
+                      onClick={() => handleDeleteAppointment(appt.id)} 
+                      title="Eliminar Turno" 
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {stats.upcomingAppointments.length === 0 && (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
                     No hay próximos turnos agendados en la agenda.
                   </td>
                 </tr>

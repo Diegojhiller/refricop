@@ -150,7 +150,7 @@ const AppointmentsList = () => {
       try {
         await api.delete(`/appointments/${id}`);
         alert('Turno eliminado correctamente.');
-        fetchAppointments();
+        setAppointments(prev => prev.filter(a => a.id !== id));
       } catch (err) {
         alert('Error al eliminar el turno.');
       }
