@@ -54,6 +54,11 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: var(--bg-color);
@@ -431,5 +436,35 @@ tr:hover td {
   td:first-child, td:last-child {
     border: none;
     border-radius: 0;
+  }
+
+  /* Overrides to prevent horizontal overflow and optimize mobile app layout */
+  .main-content {
+    padding: 1rem 0.75rem !important;
+    padding-bottom: 85px !important;
+    overflow-x: hidden !important;
+  }
+
+  .top-header {
+    padding: 0 1rem !important;
+  }
+
+  footer {
+    padding: 20px 1rem !important;
+  }
+
+  /* Force grids to wrap on mobile to fit the viewport width */
+  div[style*="grid-template-columns"],
+  div[style*="gridTemplateColumns"],
+  form[style*="grid-template-columns"],
+  form[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Ensure text wraps in cards */
+  td {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
   }
 }
