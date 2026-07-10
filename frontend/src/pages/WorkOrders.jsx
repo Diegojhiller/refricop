@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { Camera, FilePlus2, CheckCircle2, Download, Trash2, Eye } from 'lucide-react';
+import { Camera, FilePlus2, CheckCircle2, Download, Trash2, Eye, Activity, Clock, CalendarDays, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { generateQuotePDF } from '../utils/pdfGenerator';
 
 const WorkOrders = () => {
@@ -8,6 +8,7 @@ const WorkOrders = () => {
   const [showModal, setShowModal] = useState(false);
   const [files, setFiles] = useState([]);
   const [statusFilter, setStatusFilter] = useState('Todas');
+  const [showPendingPanel, setShowPendingPanel] = useState(true);
 
   // Estados para Detalle y Edición de Orden
   const [selectedWork, setSelectedWork] = useState(null);
@@ -64,23 +65,24 @@ const WorkOrders = () => {
     }
   };
 
+  const fetchAppointments = async () => {
+    try {
+      const { data } = await api.get('/appointments');
+      setAppointments(data);
+    } catch (err) {
+      console.error('Error cargando turnos', err);
+    }
+  };
+
   useEffect(() => {
     fetchWorks();
+    fetchAppointments();
+
+    // Cargar catálogo de repuestos
+    api.get('/catalog')
+      .then(({ data }) => setCatalogItems(data))
+      .catch(err => console.error('Error cargando catálogo', err));
   }, []);
-
-  useEffect(() => {
-    if (showModal) {
-      // Cargar turnos para asociar
-      api.get('/appointments')
-        .then(({ data }) => setAppointments(data))
-        .catch(err => console.error('Error cargando turnos', err));
-
-      // Cargar catálogo de repuestos
-      api.get('/catalog')
-        .then(({ data }) => setCatalogItems(data))
-        .catch(err => console.error('Error cargando catálogo', err));
-    }
-  }, [showModal]);
 
   // Autocompletar datos del equipo desde el turno seleccionado
   useEffect(() => {
@@ -219,8 +221,9 @@ const WorkOrders = () => {
       setSelectedItems([]);
       setFiles([]);
 
-      // Recargar listado
+      // Recargar listado y turnos
       fetchWorks();
+      fetchAppointments();
     } catch (err) {
       console.error(err);
       alert('Error guardando la orden de trabajo.');
@@ -231,6 +234,41 @@ const WorkOrders = () => {
     if (statusFilter === 'Todas') return true;
     return w.status === statusFilter;
   });
+
+  const handleCreateOrderFromAppointment = (appt) => {
+    setAppointmentId(appt.id.toString());
+    setEquipmentBrand(appt.equipmentBrand || '');
+    setEquipmentModel(appt.equipmentModel || '');
+    setEquipmentFrigocalories(appt.equipmentFrigocalories || '');
+    
+    const notes = (appt.notes || '').toLowerCase();
+    if (notes.includes('split')) {
+      setEquipmentType('Aire Split');
+    } else if (notes.includes('ventana')) {
+      setEquipmentType('Aire Ventana');
+    } else if (notes.includes('lavarropas')) {
+      setEquipmentType('Lavarropas Frontal');
+    } else {
+      setEquipmentType('Aire Split');
+    }
+    
+    setDiagnosis(appt.notes || '');
+    setStatus('En Progreso');
+    setSelectedItems([]);
+    setFiles([]);
+    setShowModal(true);
+  };
+
+  // Turnos que no tienen ninguna orden de trabajo asociada y no están cancelados ni completados
+  const appointmentsWithoutWork = appointments.filter(appt => {
+    const hasWork = works.some(w => w.appointmentId === appt.id);
+    return !hasWork && appt.status !== 'Cancelado' && appt.status !== 'Completado';
+  });
+
+  const activeWorksCount = works.filter(w => w.status === 'En Progreso').length;
+  const waitingWorksCount = works.filter(w => w.status === 'Esperando Repuestos').length;
+  const finishedWorksCount = works.filter(w => w.status === 'Finalizado').length;
+  const pendingAppointmentsCount = appointmentsWithoutWork.length;
 
   return (
     <div>
@@ -245,17 +283,163 @@ const WorkOrders = () => {
         </button>
       </div>
 
+      {/* Tarjetas de Métricas / KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderLeft: '4px solid var(--accent-cyan)' }}>
+          <div style={{ background: 'rgba(6, 182, 212, 0.1)', padding: '10px', borderRadius: '8px', color: 'var(--accent-cyan)' }}>
+            <CalendarDays size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Turnos por Procesar</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{pendingAppointmentsCount}</div>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderLeft: '4px solid var(--accent-blue)' }}>
+          <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '10px', borderRadius: '8px', color: 'var(--accent-blue)' }}>
+            <Activity size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Órdenes Activas</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{activeWorksCount}</div>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderLeft: '4px solid var(--warning)' }}>
+          <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '10px', borderRadius: '8px', color: 'var(--warning)' }}>
+            <Clock size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Esperando Repuestos</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{waitingWorksCount}</div>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderLeft: '4px solid var(--success)' }}>
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '8px', color: 'var(--success)' }}>
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Finalizadas (Historial)</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{finishedWorksCount}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sección Colapsable: Turnos Pendientes por Procesar */}
+      {appointmentsWithoutWork.length > 0 && (
+        <div className="glass-panel animate-fade-in" style={{ marginBottom: '24px', padding: '16px' }}>
+          <div 
+            onClick={() => setShowPendingPanel(!showPendingPanel)} 
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CalendarDays size={18} color="var(--accent-cyan)" />
+              <h3 style={{ fontSize: '1.1rem', margin: 0, fontWeight: '600' }}>
+                Turnos pendientes de generar Orden ({appointmentsWithoutWork.length})
+              </h3>
+            </div>
+            <button type="button" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              {showPendingPanel ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
+          </div>
+
+          {showPendingPanel && (
+            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {appointmentsWithoutWork.map(appt => (
+                <div 
+                  key={appt.id} 
+                  className="glass-panel" 
+                  style={{ 
+                    padding: '12px', 
+                    background: 'rgba(255, 255, 255, 0.02)', 
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '10px'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+                      <span>Turno #{appt.id}</span>
+                      <span>{new Date(appt.date).toLocaleDateString()}</span>
+                    </div>
+                    <strong style={{ fontSize: '0.95rem', display: 'block', color: 'var(--text-primary)' }}>
+                      {appt.clientNameStr || appt.Client?.name || 'Cliente'}
+                    </strong>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
+                      "{appt.notes || 'Revisión técnica'}"
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
+                      📍 {appt.clientAddressStr || appt.Client?.address || 'Sin domicilio'}
+                    </div>
+                    {appt.equipmentBrand && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', marginTop: '4px' }}>
+                        🔌 {appt.equipmentBrand} {appt.equipmentModel && `(${appt.equipmentModel})`}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => handleCreateOrderFromAppointment(appt)} 
+                    className="btn-primary" 
+                    style={{ 
+                      width: '100%', 
+                      padding: '6px 12px', 
+                      fontSize: '0.8rem', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '4px',
+                      marginTop: '4px'
+                    }}
+                  >
+                    <Plus size={14} />
+                    Generar Orden
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filtros rápidos por estado */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {['Todas', 'En Progreso', 'Esperando Repuestos', 'Finalizado'].map(statusVal => (
+        {[
+          { name: 'Todas', count: works.length },
+          { name: 'En Progreso', count: activeWorksCount },
+          { name: 'Esperando Repuestos', count: waitingWorksCount },
+          { name: 'Finalizado', count: finishedWorksCount }
+        ].map(tab => (
           <button
-            key={statusVal}
+            key={tab.name}
             type="button"
-            onClick={() => setStatusFilter(statusVal)}
-            className={statusFilter === statusVal ? 'btn-primary' : 'btn-secondary'}
-            style={{ padding: '6px 16px', fontSize: '0.85rem' }}
+            onClick={() => setStatusFilter(tab.name)}
+            className={statusFilter === tab.name ? 'btn-primary' : 'btn-secondary'}
+            style={{ 
+              padding: '6px 16px', 
+              fontSize: '0.85rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              borderRadius: '20px'
+            }}
           >
-            {statusVal}
+            {tab.name}
+            <span style={{ 
+              background: statusFilter === tab.name ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+              padding: '2px 6px',
+              borderRadius: '10px',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              color: statusFilter === tab.name ? 'white' : 'var(--text-secondary)'
+            }}>
+              {tab.count}
+            </span>
           </button>
         ))}
       </div>
@@ -414,9 +598,26 @@ const WorkOrders = () => {
                   <td data-label="Costo" style={{ color: 'var(--success)', fontWeight: 'bold' }}>${parseFloat(w.totalCost).toLocaleString()}</td>
                   <td data-label="Estado">
                     <span style={{
-                      padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem',
-                      background: w.status === 'Finalizado' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                      color: w.status === 'Finalizado' ? 'var(--success)' : 'var(--accent-blue)'
+                      padding: '4px 10px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.8rem',
+                      fontWeight: '500',
+                      border: '1px solid',
+                      background: w.status === 'Finalizado' 
+                        ? 'rgba(16, 185, 129, 0.15)' 
+                        : w.status === 'Esperando Repuestos' 
+                          ? 'rgba(245, 158, 11, 0.15)' 
+                          : 'rgba(59, 130, 246, 0.15)',
+                      color: w.status === 'Finalizado' 
+                        ? 'var(--success)' 
+                        : w.status === 'Esperando Repuestos' 
+                          ? 'var(--warning)' 
+                          : 'var(--accent-blue)',
+                      borderColor: w.status === 'Finalizado' 
+                        ? 'rgba(16, 185, 129, 0.3)' 
+                        : w.status === 'Esperando Repuestos' 
+                          ? 'rgba(245, 158, 11, 0.3)' 
+                          : 'rgba(59, 130, 246, 0.3)'
                     }}>
                       {w.status}
                     </span>
